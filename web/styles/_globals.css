@@ -1,0 +1,70 @@
+/* web/styles/_globals.css */
+
+:root {
+  /* Default: Sunset Theme */
+  --bg: #fff5f0;
+  --text: #2c0e37;
+  --navy: #2c0e37;
+  --gold: #fc8452;
+  --burgundy: #b8293d;
+  --card-radius: 0.8rem;
+}
+
+/* --- Theme Variations --- */
+.theme-ocean {
+  --bg: #f0f9ff;
+  --text: #0e3d59;
+  --navy: #0e3d59;
+  --gold: #7db7c4;
+  --burgundy: #274472;
+}
+.theme-forest {
+  --bg: #f0fbf4;
+  --text: #12372a;
+  --navy: #12372a;
+  --gold: #6aa84f;
+  --burgundy: #305936;
+}
+.theme-night {
+  --bg: #130b19;
+  --text: #fce3da;
+  --navy: #2c0e37;
+  --gold: #fc8452;
+  --burgundy: #b8293d;
+}
+
+/* --- Base Styles --- */
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.main {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.footer {
+  text-align: center;
+  padding: 2rem 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+/* --- Theme-specific Overrides --- */
+.theme-night .hero h1,
+.theme-night .results-section h2,
+.theme-night .footer {
+  color: var(--gold);
+}
+.theme-night .nav-item {
+    color: var(--text);
+}
+.theme-night .nav-item:hover, .theme-night .nav-item.active {
+    color: var(--gold);
+}

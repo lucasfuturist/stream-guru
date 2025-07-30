@@ -1,0 +1,226 @@
+/*
+  Stream Guru – UI Stylesheet
+*/
+
+:root {
+  /* Default: Sunset Theme */
+  --bg: #fff5f0;
+  --text: #2c0e37;
+  --navy: #2c0e37;
+  --gold: #fc8452;
+  --burgundy: #b8293d;
+  --card-radius: 0.8rem;
+}
+
+/* Theme Variations */
+.theme-ocean {
+  --bg: #f0f9ff;
+  --text: #0e3d59;
+  --navy: #0e3d59;
+  --gold: #7db7c4;
+  --burgundy: #274472;
+}
+
+.theme-forest {
+  --bg: #f0fbf4;
+  --text: #12372a;
+  --navy: #12372a;
+  --gold: #6aa84f;
+  --burgundy: #305936;
+}
+
+.theme-night {
+  --bg: #130b19;
+  --text: #fce3da;
+  --navy: #2c0e37;
+  --gold: #fc8452;
+  --burgundy: #b8293d;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Header & Navigation */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: var(--navy);
+  color: var(--gold);
+}
+
+.logo {
+  font-weight: 800;
+  font-size: 1.5rem;
+}
+
+.nav {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+.nav-item {
+  color: var(--gold);
+  text-decoration: none;
+  font-weight: 600;
+  padding-bottom: 4px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav-item:hover, .nav-item.active {
+  color: var(--burgundy);
+  border-bottom-color: var(--burgundy);
+}
+
+#themeSelector {
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: none;
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Main Content & Hero */
+.main {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.hero {
+  text-align: center;
+  margin: 2rem 0 4rem;
+}
+.hero h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--navy);
+}
+.search-form {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.search-input {
+  flex: 1;
+  padding: 0.8rem 1.2rem;
+  border: 1px solid var(--text);
+  border-radius: var(--card-radius) 0 0 var(--card-radius);
+  font-size: 1rem;
+  background: var(--bg);
+  color: var(--text);
+}
+.search-button {
+  padding: 0.8rem 1.5rem;
+  border-radius: 0 var(--card-radius) var(--card-radius) 0;
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.search-button:hover {
+  background: var(--burgundy);
+  border-color: var(--burgundy);
+  color: var(--bg);
+}
+
+/* Results Grid */
+.results-section h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--navy);
+  margin-bottom: 1.5rem;
+}
+.movie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+.placeholder-text, .error-text {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text);
+  opacity: 0.7;
+}
+.error-text {
+  color: var(--burgundy);
+  font-weight: 600;
+}
+
+/* Movie Card */
+.movie-card {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: transform 0.2s;
+}
+.movie-card:hover {
+  transform: translateY(-5px);
+}
+.poster-container {
+  position: relative;
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.poster-container img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.poster-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.75rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  color: #fff;
+}
+.poster-overlay .title {
+  font-weight: 600;
+  line-height: 1.3;
+}
+.poster-overlay .score {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--burgundy);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.movie-title-standalone {
+  font-weight: 600;
+  margin-top: 0.75rem;
+  color: var(--text);
+}
+
+/* Dark theme overrides */
+.theme-night .hero h1,
+.theme-night .results-section h2 {
+  color: var(--gold);
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 2rem 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  opacity: 0.7;
+}

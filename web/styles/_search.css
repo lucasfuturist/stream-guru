@@ -1,0 +1,59 @@
+/* web/styles/_search.css */
+
+.hero {
+  text-align: center;
+  margin: 4rem 0;
+}
+
+.hero h1 {
+  font-size: 2.75rem;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.search-form {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.search-input {
+  flex: 1;
+  padding: 0.8rem 1.2rem;
+  border: 1px solid var(--text);
+  border-right: none;
+  border-radius: var(--card-radius) 0 0 var(--card-radius);
+  font-size: 1rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.search-input:focus {
+    outline: 2px solid var(--gold);
+    outline-offset: -1px;
+}
+
+.search-button {
+  padding: 0.8rem 1.5rem;
+  border-radius: 0 var(--card-radius) var(--card-radius) 0;
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.search-button:hover {
+  background: var(--burgundy);
+  border-color: var(--burgundy);
+  color: var(--bg);
+}
+
+.search-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

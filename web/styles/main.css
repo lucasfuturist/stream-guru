@@ -1,0 +1,11 @@
+/* web/styles/main.css */
+/* This file imports all other style partials. */
+
+@import url('_globals.css');
+@import url('_header.css');
+@import url('_search.css');
+@import url('_card.css');
+@import url('_chat.css');
+@import url('_modal.css');
+
+/* Add future imports here, e.g., @import url('_chat.css'); */

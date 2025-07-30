@@ -1,0 +1,176 @@
+/* web/styles/_chat.css */
+
+.chat-container {
+  max-width: 800px;
+  margin: 2rem auto;
+  border: 1px solid var(--text);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Set a height that works well on most screens */
+  height: 70vh; 
+}
+
+.chat-messages {
+  flex-grow: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chat-message {
+  display: flex;
+  max-width: 75%;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+}
+
+.chat-message.assistant {
+  align-self: flex-start;
+}
+
+.message-bubble {
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  line-height: 1.5;
+}
+
+/* User's message style */
+.chat-message.user .message-bubble {
+  background-color: var(--gold);
+  color: var(--navy);
+  border-bottom-right-radius: 0.25rem;
+}
+
+/* Assistant's message style */
+.chat-message.assistant .message-bubble {
+  background-color: var(--bg);
+  border: 1px solid var(--text);
+  border-bottom-left-radius: 0.25rem;
+}
+
+/* Thinking bubble for loading state */
+.chat-message.assistant.thinking .message-bubble {
+  color: var(--text);
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.chat-input-form {
+  display: flex;
+  border-top: 1px solid var(--text);
+}
+
+.chat-input-form input {
+  flex-grow: 1;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  padding: 1.25rem;
+  font-size: 1rem;
+}
+.chat-input-form input:focus {
+  outline: none;
+}
+
+.chat-input-form button {
+  padding: 0 2rem;
+  border: none;
+  background: var(--gold);
+  color: var(--navy);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, color .2s;
+}
+
+.chat-input-form button:hover {
+    background: var(--burgundy);
+    color: var(--bg);
+}
+.chat-input-form button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Let's make the movie recommendations look good */
+.recommendation-list {
+    margin-top: 0.5rem;
+    padding-left: 0;
+    list-style-type: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.recommendation-list li a {
+    display: block;
+    font-weight: 600;
+    color: inherit;
+    text-decoration: none;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s;
+}
+.theme-night .recommendation-list li a {
+    color: var(--navy); /* Make links readable in night mode */
+}
+.recommendation-list li a:hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.recommendation-grid {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto; /* This enables horizontal scrolling */
+  padding: 0.5rem 0.25rem 1rem; /* Add some padding for the scrollbar */
+  /* Hide scrollbar for a cleaner look, but still allow scrolling */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.recommendation-grid::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, and Opera */
+}
+
+/* Individual recommendation card */
+.rec-card {
+  /* Set a fixed width so the cards line up horizontally */
+  flex: 0 0 140px; 
+  width: 140px;
+  text-decoration: none;
+  color: #fff;
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+.rec-card:hover {
+  transform: translateY(-4px);
+}
+
+.rec-card-poster {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rec-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.5rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 20%, transparent);
+}
+
+.rec-card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+}

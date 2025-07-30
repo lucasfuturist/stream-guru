@@ -1,0 +1,24 @@
+{
+  "name": "stream-guru",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "seed": "deno run --allow-net --allow-env --allow-read scripts/tmdb_seed.ts",
+    "embed": "deno run --allow-net --allow-env --allow-read scripts/embed_all.ts",
+    "audit": "deno run --allow-net --allow-env --allow-write --allow-read --unstable-raw-imports scripts/audit.ts"  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "^24.1.0",
+    "autoprefixer": "^10.4.21",
+    "dotenv": "^17.2.1",
+    "tailwindcss": "^4.1.11",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.53.0",
+    "node-fetch": "3",
+    "openai": "^5.10.2"
+  }
+}

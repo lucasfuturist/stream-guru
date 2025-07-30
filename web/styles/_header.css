@@ -1,0 +1,59 @@
+.header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* This is the key change */
+  align-items: center;
+  padding: 1rem 2rem;
+  background: var(--navy);
+  color: var(--gold);
+}
+
+/* Place the logo in the first column */
+.logo {
+  justify-self: start; /* Align to the start of its column */
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: var(--gold);
+}
+
+/* The nav is automatically in the second (auto) column */
+.nav {
+  display: flex;
+  gap: 2rem;
+}
+
+/* The theme selector is automatically in the third column */
+#themeSelector {
+  justify-self: end; /* Align to the end of its column */
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%232c0e37' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding-right: 2rem;
+}
+
+/* Styling for the nav links themselves remains the same */
+.nav-item {
+  color: #fce3da;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  transition: color 0.2s ease;
+}
+
+.nav-item:hover {
+  color: var(--burgundy);
+}
+
+.nav-item.active {
+  color: var(--burgundy);
+  font-weight: 700;
+}

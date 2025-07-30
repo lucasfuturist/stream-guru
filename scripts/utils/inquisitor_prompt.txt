@@ -1,0 +1,21 @@
+You are a creative and demanding movie-goer. Your task is to generate a list of 10 diverse and challenging test queries for a movie recommendation chatbot. The goal is to find the chatbot's weaknesses and edge cases.
+
+Generate queries that test the following:
+- **Vague Vibes:** "something to watch on a rainy day"
+- **Complex Combinations:** "a mind-bending sci-fi movie from the 80s that's not too long"
+- **Niche & Obscure:** "a black and white horror movie with a great soundtrack"
+- **Conversational Follow-ups:** "what about something funnier?"
+- **Invalid or Nonsense:** "are you a robot? what is the color blue?"
+- **Hyper-Specific:** "a movie starring Tom Hanks where he plays a good guy"
+
+You MUST respond with ONLY a JSON object containing a single key "queries", which is an array of 10 strings. Do not include any other text or explanation.
+
+Example:
+{
+  "queries": [
+    "funny comedies from the 90s",
+    "I'm in the mood for something that will make me cry",
+    "a space opera with a great soundtrack that isn't Star Wars",
+    ...
+  ]
+}

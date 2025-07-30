@@ -1,0 +1,32 @@
+Below is a concise “ **do-not-touch** ” list for your current repo.
+Treat these files (or whole directories) as **read-only**; only interact with them through the CLI or your build tools, never by hand-editing in VS Code.
+
+| Area                                                                                   | Why it’s off-limits                                                                                                                     | How you *should* change it                                                                 |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **`supabase/migrations/0000_initial_schema.sql`**                                      | Canonical schema; every local & remote DB reset starts from here.                                                                       | Create *new* migrations with `supabase migration new …`; never edit or re-order this file. |
+| **All earlier migration files** (anything already committed in `supabase/migrations/`) | Supabase hashes each migration; editing breaks the checksum and future resets.                                                          | Same as above: add new migrations only.                                                    |
+| **`supabase/config.toml`**                                                             | Generated/updated by `supabase link`, `supabase start`, etc. Hand-edits get overwritten and can break the local stack.                  | Change it only via `supabase link …` or the prompts the CLI gives you.                     |
+| **`supabase/.branches/`, `supabase/.temp/`**                                           | CLI scratch data; any edit risks corrupting the container orchestration or migration history.                                           | Ignore in Git; let the CLI regenerate.                                                     |
+| **Auto-generated build output** (`.next/`, `node_modules/`, `dist/`, etc.)             | Pure artifacts; edits disappear on the next `npm run dev` or install.                                                                   | Change source files instead.                                                               |
+| **`.env`, `.env.local` committed secrets**                                             | They’re fine to *add* values to, but don’t check in real passwords/keys or delete required env vars (`NEXT_PUBLIC_SUPABASE_URL`, etc.). | Use separate `.env.*` per environment and *never* rename the required vars.                |
+| **Scripts under `scripts/` that start with `seed_` or `dump_`**                        | Your import/export helpers expect exact filenames & arg order; renaming breaks your CI snippets.                                        | Duplicate and modify if you need variants—leave originals alone.                           |
+| **Vector-extension containers** (named `supabase_vector_<project>` in Docker)          | Managed by the CLI; manual removal while the stack is “up” causes the `start`/`stop` loop you hit earlier.                              | Always run `npx supabase stop` first.                                                      |
+
+### Safe places to work
+
+* **`src/`** – React / Next .js code, API routes, components.
+* **New** migration SQL files (`supabase migration new …`).
+* **`scripts/`** – you can add new helper scripts alongside the existing ones.
+* **Seed files** – create a separate `supabase/seed_*.sql` and call it from your own script; keep it out of `supabase/.temp`.
+
+---
+
+when coding, exclusively provide powershell commands. no coding should need to be done in the ide. when providing code, fully justify it. no unexplained code.
+
+MAXIMIZE debug logs; we need to use these as much as possible so that we can ensure quick debugging.
+
+VALUE VALUE VALUE SIMPLICITY! it is so crucial that we attain that.
+
+DO NOT ASSUME FRUSTRATION if debugging lasts a while.
+
+Always add -Encoding utf8 to Set-Content (or switch to VS Code, which defaults to UTF-8), unless you have an explicit reason for otherwise

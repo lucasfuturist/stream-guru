@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat – Stream Guru</title>
+  <link rel="stylesheet" href="styles/main.css" />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header">
+    <div class="logo">StreamGuru</div>
+    <nav class="nav">
+      <a href="index.html" class="nav-item">Home</a>
+      <a href="explore.html" class="nav-item">Explore</a>
+      <a href="chat.html" class="nav-item active">Chat</a>
+      <a href="match.html" class="nav-item">Match Mode</a>
+    </nav>
+    <select id="themeSelector" title="Choose a theme">
+      <option value="">Sunset (default)</option>
+      <option value="theme-ocean">Ocean</option>
+      <option value="theme-forest">Forest</option>
+      <option value="theme-night">Night</option>
+    </select>
+  </header>
+
+  <main class="main">
+    <div class="chat-container">
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-message assistant">
+          <div class="message-bubble">
+            Hi! I'm StreamGuru. Ask me for a recommendation, like "funny comedies from the 90s" or "a space opera with a great soundtrack".
+          </div>
+        </div>
+      </div>
+      <form class="chat-input-form" id="chat-form">
+        <input
+          type="text"
+          id="chat-input"
+          placeholder="Ask for a recommendation..."
+          autocomplete="off"
+          required
+        />
+        <button type="submit" id="chat-submit-button">Send</button>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2025 Stream Guru</p>
+  </footer>
+
+  <div id="movie-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <button class="modal-close-btn" id="modal-close-btn">×</button>
+      <div class="modal-body">
+        <div class="modal-top-section">
+          <div class="modal-poster-container">
+            <img id="modal-poster" src="" alt="Movie Poster">
+          </div>
+          <div class="modal-details">
+            <img id="modal-logo" class="modal-logo" src="" alt="Movie Logo">
+            <h2 id="modal-title"></h2>
+            <div class="modal-meta" id="modal-meta">
+              <span id="modal-release-date"></span>
+              <span id="modal-runtime"></span>
+            </div>
+            <div class="modal-genres" id="modal-genres"></div>
+            <div class="modal-video-actions">
+              <button id="modal-trailer-btn" class="modal-action-btn hidden">
+                Watch Trailer
+              </button>
+              <div id="modal-video-wrapper" class="video-wrapper hidden"></div>
+            </div>
+            <p id="modal-synopsis"></p>
+          </div>
+        </div>
+        <div class="modal-cast">
+          <h3>Top Cast</h3>
+          <div class="cast-list" id="modal-cast-list"></div>
+        </div>
+        <div id="modal-watch-providers" class="modal-watch-providers hidden">
+          <h3>Where to Watch</h3>
+          <div class="provider-list" id="modal-provider-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="scripts/chat.js"></script>
+</body>
+</html>
