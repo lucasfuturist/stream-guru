@@ -5,3 +5,4 @@ node_modules/
 .DS_Store
 current-stream-guru
 web-ts/
+reports/
