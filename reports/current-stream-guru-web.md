@@ -7,11 +7,13 @@ web
 |   +-- chat.js
 |   +-- main.js
 |   +-- modal.js
+|   +-- supabase.js
 |   +-- theme.js
 |   L-- ui.js
 +-- styles
 |   +-- _card.css
 |   +-- _chat.css
+|   +-- _filters.css
 |   +-- _globals.css
 |   +-- _header.css
 |   +-- _modal.css
@@ -29,7 +31,7 @@ web
 +-- match.html
 L-- styles.css
 
-📜 Listing scripts with extensions: .ts, .txt, .tsx, .js, .jsx, .py, .html, .json, .css, .sql, .toml, .cjs, .ps1
+📜 Listing scripts with extensions: .ts, .txt, .tsx, .js, .jsx, .py, .html, .json, .css, .sql, .toml, .ps1
 ----------------------------------------
 
 ### chat.html
@@ -105,23 +107,22 @@ L-- styles.css
               <span id="modal-runtime"></span>
             </div>
             <div class="modal-genres" id="modal-genres"></div>
-
-            <!-- MODIFIED: Trailer button and video wrapper -->
             <div class="modal-video-actions">
               <button id="modal-trailer-btn" class="modal-action-btn hidden">
                 Watch Trailer
               </button>
-              <div id="modal-video-wrapper" class="video-wrapper hidden">
-                <!-- The YouTube iframe will be injected here by JavaScript -->
-              </div>
+              <div id="modal-video-wrapper" class="video-wrapper hidden"></div>
             </div>
-
             <p id="modal-synopsis"></p>
           </div>
         </div>
         <div class="modal-cast">
           <h3>Top Cast</h3>
           <div class="cast-list" id="modal-cast-list"></div>
+        </div>
+        <div id="modal-watch-providers" class="modal-watch-providers hidden">
+          <h3>Where to Watch</h3>
+          <div class="provider-list" id="modal-provider-list"></div>
         </div>
       </div>
     </div>
@@ -145,8 +146,6 @@ L-- styles.css
   <title>Stream Guru</title>
   
   <link rel="stylesheet" href="styles/main.css" />
-
-  <!-- Google Fonts link -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -154,14 +153,12 @@ L-- styles.css
 <body>
 <header class="header">
   <div class="logo">StreamGuru</div>
-
   <nav class="nav">
     <a href="index.html" class="nav-item active">Home</a>
     <a href="explore.html" class="nav-item">Explore</a>
     <a href="chat.html" class="nav-item">Chat</a>
     <a href="match.html" class="nav-item">Match Mode</a>
   </nav>
-
   <select id="themeSelector" title="Choose a theme">
     <option value="">Sunset (default)</option>
     <option value="theme-ocean">Ocean</option>
@@ -182,7 +179,52 @@ L-- styles.css
         />
         <button type="submit" class="search-button">Search</button>
       </form>
+      <!-- START: New Filter Toggle Button -->
+      <div class="filter-toggle-container">
+        <button id="toggle-filters-btn" class="secondary-button">Filter Results</button>
+      </div>
+      <!-- END: New Filter Toggle Button -->
     </section>
+
+    <!-- The 'hidden' class is added here to hide it by default -->
+    <section class="filter-section hidden" id="filter-controls">
+      <div class="filter-group">
+        <label for="genre-filter">Genre</label>
+        <select id="genre-filter" name="genre">
+          <option value="">All Genres</option>
+          <option value="Action">Action</option>
+          <option value="Adventure">Adventure</option>
+          <option value="Animation">Animation</option>
+          <option value="Comedy">Comedy</option>
+          <option value="Crime">Crime</option>
+          <option value="Documentary">Documentary</option>
+          <option value="Drama">Drama</option>
+          <option value="Family">Family</option>
+          <option value="Fantasy">Fantasy</option>
+          <option value="History">History</option>
+          <option value="Horror">Horror</option>
+          <option value="Music">Music</option>
+          <option value="Mystery">Mystery</option>
+          <option value="Romance">Romance</option>
+          <option value="Science Fiction">Science Fiction</option>
+          <option value="TV Movie">TV Movie</option>
+          <option value="Thriller">Thriller</option>
+          <option value="War">War</option>
+          <option value="Western">Western</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="runtime-filter">Max Runtime</label>
+        <input type="range" id="runtime-filter" min="60" max="240" step="10" value="240">
+        <span id="runtime-value">Any</span>
+      </div>
+      <div class="filter-group">
+        <label for="actor-filter">Actor</label>
+        <input type="text" id="actor-filter" name="actor" placeholder="e.g., Tom Hanks">
+      </div>
+      <button id="apply-filters-btn" class="search-button">Apply Filters</button>
+    </section>
+
     <section class="results-section">
       <h2 id="results-heading">Loading...</h2>
       <div class="movie-grid" id="movie-grid">
@@ -198,7 +240,6 @@ L-- styles.css
     <div class="modal-content">
       <button class="modal-close-btn" id="modal-close-btn">×</button>
       <div class="modal-body">
-        
         <div class="modal-top-section">
           <div class="modal-poster-container">
             <img id="modal-poster" src="" alt="Movie Poster">
@@ -211,32 +252,28 @@ L-- styles.css
               <span id="modal-runtime"></span>
             </div>
             <div class="modal-genres" id="modal-genres"></div>
-            
-            <!-- MODIFIED: Trailer button and video wrapper -->
             <div class="modal-video-actions">
               <button id="modal-trailer-btn" class="modal-action-btn hidden">
                 Watch Trailer
               </button>
-              <div id="modal-video-wrapper" class="video-wrapper hidden">
-                <!-- The YouTube iframe will be injected here by JavaScript -->
-              </div>
+              <div id="modal-video-wrapper" class="video-wrapper hidden"></div>
             </div>
-
             <p id="modal-synopsis"></p>
           </div>
         </div>
-
         <div class="modal-cast">
           <h3>Top Cast</h3>
           <div class="cast-list" id="modal-cast-list"></div>
         </div>
-
+        <div id="modal-watch-providers" class="modal-watch-providers hidden">
+          <h3>Where to Watch</h3>
+          <div class="provider-list" id="modal-provider-list"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <script type="module" src="scripts/main.js"></script>
-  
 </body>
 </html>
 
@@ -248,58 +285,71 @@ L-- styles.css
 
 // web/scripts/api.js
 
-const FUNCTIONS_BASE = 'https://gfbafuojtjtnbtfdhiqo.functions.supabase.co';
+import { supabase } from './supabase.js';
 
 /**
- * Fetches only the AI's witty response and parsed filters.
- * @param {string} message - The user's search query.
- * @returns {Promise<{ai_message: string, filters: object}>}
+ * Calls the main chatbot orchestrator function. This is the primary method for the chat UI.
+ * @param {string} prompt - The user's latest message.
+ * @returns {Promise<object>} - The full, audited response from the orchestrator.
  */
-export async function fetchAiResponse(message) {
-  const response = await fetch(`${FUNCTIONS_BASE}/get-ai-response`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+export async function callChatSession(prompt) {
+  // We are now calling the new, consolidated, and much faster 'chat-final' function.
+  const { data, error } = await supabase.functions.invoke('chat-final', {
+    body: { prompt },
   });
-  if (!response.ok) throw new Error('Failed to get AI response.');
-  return await response.json();
+
+  if (error) throw new Error(`Network error calling chat-final: ${error.message}`);
+  if (data.error) throw new Error(`Application error in chat-final: ${data.error}`);
+  return data;
 }
 
 /**
- * Fetches media recommendations based on a message and pre-parsed filters.
- * @param {string} message - The user's original query.
- * @param {object} filters - The filters parsed by the AI.
+ * Fetches trending media using the Supabase client.
  * @returns {Promise<Array>}
  */
-export async function fetchMediaMatches(message, filters) {
-  const response = await fetch(`${FUNCTIONS_BASE}/get-recommendations`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, filters }),
-  });
-  if (!response.ok) throw new Error('Failed to fetch recommendations.');
-  const { recommendations } = await response.json();
-  return recommendations;
-}
-
-// --- Other API functions remain the same ---
-
 export async function fetchTrending() {
-  const response = await fetch(`${FUNCTIONS_BASE}/trending`);
-  if (!response.ok) throw new Error('Could not load trending titles.');
-  const { trending } = await response.json();
-  return trending;
+  const { data, error } = await supabase.functions.invoke('trending');
+  if (error) throw new Error('Could not load trending titles.');
+  return data.trending;
 }
 
+/**
+ * Fetches media details using the Supabase client.
+ * @param {number} tmdb_id - The TMDb ID of the media.
+ * @returns {Promise<object>}
+ */
 export async function fetchMediaDetails(tmdb_id) {
-  const response = await fetch(`${FUNCTIONS_BASE}/get-details`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tmdb_id }),
+  const { data, error } = await supabase.functions.invoke('get-details', {
+    body: { tmdb_id },
   });
-  if (!response.ok) throw new Error('Could not load media details.');
-  const { details } = await response.json();
-  return details;
+  if (error) throw new Error('Could not load media details.');
+  return data.details;
+}
+
+/**
+ * Fetches media via a direct keyword search.
+ * @param {string} query - The user's search term.
+ * @returns {Promise<Array>}
+ */
+export async function fetchSearchResults(query) {
+  const { data, error } = await supabase.functions.invoke('search-media', {
+    body: { query },
+  });
+  if (error) throw new Error('Failed to fetch search results.');
+  return data.results;
+}
+
+/**
+ * Fetches media based on a structured filter object.
+ * @param {object} filters - The filter criteria.
+ * @returns {Promise<Array>}
+ */
+export async function fetchFilteredMedia(filters) {
+  const { data, error } = await supabase.functions.invoke('filter-media', {
+    body: { filters },
+  });
+  if (error) throw new Error('Failed to fetch filtered results.');
+  return data.results;
 }
 
 ### chat.js
@@ -307,7 +357,7 @@ export async function fetchMediaDetails(tmdb_id) {
 // web/scripts/chat.js
 
 import { initTheme } from './theme.js';
-import { fetchAiResponse, fetchMediaMatches } from './api.js'; // Use new functions
+import { callChatSession } from './api.js';
 import { initModal } from './modal.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -333,9 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function formatRecommendations(recommendations) {
-    if (!recommendations || recommendations.length === 0) {
-      return "I couldn't find any matches for that. Try asking for something else!";
-    }
+    if (!recommendations || recommendations.length === 0) return "";
     let html = '<div class="recommendation-grid">';
     recommendations.forEach(rec => {
       if (!rec.poster_path) return;
@@ -353,35 +401,26 @@ document.addEventListener('DOMContentLoaded', () => {
     chatInput.value = '';
     chatInput.disabled = true;
     submitButton.disabled = true;
+    
     appendMessage(userMessage, 'user');
-
+    
     const thinkingBubble = appendMessage('Thinking...', 'assistant');
     thinkingBubble.classList.add('thinking');
 
     try {
-      // --- NEW TWO-STEP LOGIC ---
+      const response = await callChatSession(userMessage);
 
-      // Step 1: Get the fast AI response
-      const { ai_message, filters } = await fetchAiResponse(userMessage);
-      
-      // Update the UI with the witty response immediately
-      thinkingBubble.querySelector('.message-bubble').textContent = ai_message.trim() || "On it...";
+      thinkingBubble.querySelector('.message-bubble').innerHTML = response.prose || "Here's what I found for you!";
       thinkingBubble.classList.remove('thinking');
       
-      // Step 2: Now get the slower recommendations
-      const searchBubble = appendMessage('Searching for matches...', 'assistant');
-      searchBubble.classList.add('thinking');
-
-      const recommendations = await fetchMediaMatches(userMessage, filters);
-      const formattedHtml = formatRecommendations(recommendations);
-
-      // Update the second bubble with the final results
-      searchBubble.querySelector('.message-bubble').innerHTML = formattedHtml;
-      searchBubble.classList.remove('thinking');
+      if (response.recs && response.recs.length > 0) {
+        const formattedHtml = formatRecommendations(response.recs);
+        appendMessage(formattedHtml, 'assistant');
+      }
 
     } catch (error) {
       console.error("Chat error:", error);
-      thinkingBubble.querySelector('.message-bubble').textContent = "Sorry, I ran into an error. Please try again.";
+      thinkingBubble.querySelector('.message-bubble').textContent = `Sorry, I ran into an error. ${error.message}`;
       thinkingBubble.classList.remove('thinking');
     } finally {
       chatInput.disabled = false;
@@ -393,6 +432,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (chatForm) {
     chatForm.addEventListener('submit', handleChatSubmit);
   }
+
+  // --- THIS IS THE FIX ---
+  // We now clear the chat window before adding the initial welcome message.
+  chatMessages.innerHTML = '';
+  appendMessage(
+    'Hi! I\'m StreamGuru. Ask me for a recommendation, like "funny comedies from the 90s" or "a space opera with a great soundtrack".',
+    'assistant'
+  );
 });
 
 ### main.js
@@ -400,7 +447,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // web/scripts/main.js
 
 import { initTheme } from './theme.js';
-import { fetchTrending, fetchAiResponse, fetchMediaMatches, fetchMediaDetails } from './api.js';
+// --- THIS IS THE FIX ---
+// We now only import the functions that this page actually uses.
+// fetchAiResponse and fetchMediaMatches have been removed.
+import { fetchTrending, fetchFilteredMedia, fetchMediaDetails, fetchSearchResults } from './api.js';
+// --- END OF FIX ---
 import { displayMovies, displayError, displayLoading } from './ui.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -411,6 +462,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('search-input');
   const searchButton = document.querySelector('.search-button');
   const movieGrid = document.getElementById('movie-grid');
+
+  // --- Get filter elements ---
+  const toggleFiltersBtn = document.getElementById('toggle-filters-btn');
+  const filterControls = document.getElementById('filter-controls');
+  const genreFilter = document.getElementById('genre-filter');
+  const runtimeFilter = document.getElementById('runtime-filter');
+  const runtimeValue = document.getElementById('runtime-value');
+  const actorFilter = document.getElementById('actor-filter');
+  const applyFiltersBtn = document.getElementById('apply-filters-btn');
 
   // --- Get all modal elements ---
   const modal = document.getElementById('movie-modal');
@@ -426,12 +486,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalCastList = document.getElementById('modal-cast-list');
   const modalTrailerBtn = document.getElementById('modal-trailer-btn');
   const modalVideoWrapper = document.getElementById('modal-video-wrapper');
-  
-  // --- FIXED: The missing variable declarations are now here ---
   const modalWatchProviders = document.getElementById('modal-watch-providers');
   const modalProviderList = document.getElementById('modal-provider-list');
   
   let currentTrailerKey = null;
+
+  // --- Event Listener to show/hide filters ---
+  if (toggleFiltersBtn && filterControls) {
+    toggleFiltersBtn.addEventListener('click', () => {
+      filterControls.classList.toggle('hidden');
+    });
+  }
 
   async function handleSearch(event) {
     event.preventDefault();
@@ -444,9 +509,8 @@ document.addEventListener('DOMContentLoaded', () => {
     displayLoading(query);
 
     try {
-      const { filters } = await fetchAiResponse(query);
-      const recommendations = await fetchMediaMatches(query, filters);
-      displayMovies(recommendations, `Recommendations for "${query}"`);
+      const searchResults = await fetchSearchResults(query);
+      displayMovies(searchResults, `Results for "${query}"`);
     } catch (error) {
       displayError(error.message);
     } finally {
@@ -454,6 +518,39 @@ document.addEventListener('DOMContentLoaded', () => {
       searchButton.disabled = false;
       searchButton.textContent = 'Search';
     }
+  }
+  
+  async function handleFilterSearch() {
+    applyFiltersBtn.disabled = true;
+    applyFiltersBtn.textContent = 'Applying...';
+    
+    const filters = {
+      genre: genreFilter.value || null,
+      actor_name: actorFilter.value.trim() || null,
+      max_runtime: runtimeFilter.valueAsNumber < 240 ? runtimeFilter.valueAsNumber : null,
+    };
+
+    displayLoading('Applying filters...');
+
+    try {
+      const filteredResults = await fetchFilteredMedia(filters);
+      displayMovies(filteredResults, 'Filtered Results');
+    } catch (error) {
+      displayError(error.message);
+    } finally {
+      applyFiltersBtn.disabled = false;
+      applyFiltersBtn.textContent = 'Apply Filters';
+    }
+  }
+
+  if (runtimeFilter && runtimeValue) {
+    runtimeFilter.addEventListener('input', () => {
+      if (runtimeFilter.value === '240') {
+        runtimeValue.textContent = 'Any';
+      } else {
+        runtimeValue.textContent = `< ${runtimeFilter.value} min`;
+      }
+    });
   }
 
   async function loadInitialPage() {
@@ -504,7 +601,8 @@ document.addEventListener('DOMContentLoaded', () => {
         details.top_cast.forEach(actor => {
             const castMemberDiv = document.createElement('div');
             castMemberDiv.className = 'cast-member';
-            castMemberDiv.innerHTML = `<img src="${actor.profile_path || 'https://placehold.co/185x278?text=No+Image'}" alt="${actor.name}" class="cast-member-img"><p class="cast-member-name">${actor.name}</p><p class="cast-member-char">${actor.character}</p>`;
+            const profileSrc = actor.profile_path ? actor.profile_path : 'https://placehold.co/185x278?text=No+Image';
+            castMemberDiv.innerHTML = `<img src="${profileSrc}" alt="${actor.name}" class="cast-member-img"><p class="cast-member-name">${actor.name}</p><p class="cast-member-char">${actor.character}</p>`;
             modalCastList.appendChild(castMemberDiv);
         });
     }
@@ -513,20 +611,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const providers = details.watch_providers;
     if (providers && providers.flatrate && providers.flatrate.length > 0) {
       modalWatchProviders.classList.remove('hidden');
-      
       providers.flatrate.forEach(provider => {
         const providerLink = document.createElement('a');
         providerLink.href = providers.link;
         providerLink.target = '_blank';
         providerLink.rel = 'noopener noreferrer';
         providerLink.className = 'provider-item';
-
         const providerLogo = document.createElement('img');
         providerLogo.src = `https://image.tmdb.org/t/p/w92${provider.logo_path}`;
         providerLogo.alt = provider.provider_name;
         providerLogo.title = provider.provider_name;
         providerLogo.className = 'provider-logo';
-
         providerLink.appendChild(providerLogo);
         modalProviderList.appendChild(providerLink);
       });
@@ -585,8 +680,12 @@ document.addEventListener('DOMContentLoaded', () => {
     currentTrailerKey = null;
   }
 
+  // --- Attach Event Listeners ---
   if (searchForm) {
     searchForm.addEventListener('submit', handleSearch);
+  }
+  if (applyFiltersBtn) {
+    applyFiltersBtn.addEventListener('click', handleFilterSearch);
   }
   if (movieGrid) {
     movieGrid.addEventListener('click', handleCardClick);
@@ -616,7 +715,7 @@ import { fetchMediaDetails } from './api.js';
 
 let modal, modalContent, modalCloseBtn, modalPoster, modalLogo, modalTitle;
 let modalReleaseDate, modalRuntime, modalGenres, modalSynopsis, modalCastList;
-let modalTrailerBtn, modalVideoWrapper;
+let modalTrailerBtn, modalVideoWrapper, modalWatchProviders, modalProviderList;
 
 let currentTrailerKey = null;
 
@@ -651,13 +750,44 @@ function populateModal(details) {
       details.top_cast.forEach(actor => {
           const castMemberDiv = document.createElement('div');
           castMemberDiv.className = 'cast-member';
+
+          // --- THIS IS THE FIX ---
+          // The issue was that the duplicated logic in main.js was likely different.
+          // We will ensure that this canonical function correctly handles null paths
+          // and directly uses the valid URL from the database.
+          const profileSrc = actor.profile_path ? actor.profile_path : 'https://placehold.co/185x278?text=No+Image';
+
           castMemberDiv.innerHTML = `
-              <img src="${actor.profile_path || 'https://placehold.co/185x278?text=No+Image'}" alt="${actor.name}" class="cast-member-img">
+              <img src="${profileSrc}" alt="${actor.name}" class="cast-member-img">
               <p class="cast-member-name">${actor.name}</p>
               <p class="cast-member-char">${actor.character}</p>
           `;
+          // --- END OF FIX ---
+          
           modalCastList.appendChild(castMemberDiv);
       });
+  }
+  
+  modalProviderList.innerHTML = '';
+  const providers = details.watch_providers;
+  if (providers && providers.flatrate && providers.flatrate.length > 0) {
+    modalWatchProviders.classList.remove('hidden');
+    providers.flatrate.forEach(provider => {
+      const providerLink = document.createElement('a');
+      providerLink.href = providers.link;
+      providerLink.target = '_blank';
+      providerLink.rel = 'noopener noreferrer';
+      providerLink.className = 'provider-item';
+      const providerLogo = document.createElement('img');
+      providerLogo.src = `https://image.tmdb.org/t/p/w92${provider.logo_path}`;
+      providerLogo.alt = provider.provider_name;
+      providerLogo.title = provider.provider_name;
+      providerLogo.className = 'provider-logo';
+      providerLink.appendChild(providerLogo);
+      modalProviderList.appendChild(providerLink);
+    });
+  } else {
+    modalWatchProviders.classList.add('hidden');
   }
 }
 
@@ -685,10 +815,10 @@ async function openModal(tmdbId) {
   modalReleaseDate.textContent = '';
   modalRuntime.textContent = '';
   modalLogo.style.display = 'none';
-  
   modalTrailerBtn.classList.add('hidden');
   modalVideoWrapper.classList.add('hidden');
   modalVideoWrapper.innerHTML = '';
+  modalWatchProviders.classList.add('hidden');
 
   try {
     const details = await fetchMediaDetails(tmdbId);
@@ -702,7 +832,6 @@ async function openModal(tmdbId) {
 
 function closeModal() {
   modal.classList.add('hidden');
-  
   modalVideoWrapper.innerHTML = '';
   modalVideoWrapper.classList.add('hidden');
   currentTrailerKey = null;
@@ -720,9 +849,10 @@ export function initModal(container) {
   modalGenres = document.getElementById('modal-genres');
   modalSynopsis = document.getElementById('modal-synopsis');
   modalCastList = document.getElementById('modal-cast-list');
-  
   modalTrailerBtn = document.getElementById('modal-trailer-btn');
   modalVideoWrapper = document.getElementById('modal-video-wrapper');
+  modalWatchProviders = document.getElementById('modal-watch-providers');
+  modalProviderList = document.getElementById('modal-provider-list');
   
   if (!container || !modal) return;
 
@@ -735,7 +865,6 @@ export function initModal(container) {
   });
 
   modalTrailerBtn.addEventListener('click', handleWatchTrailer);
-  
   modalCloseBtn.addEventListener('click', closeModal);
   modal.addEventListener('click', (event) => {
     if (event.target === modal) {
@@ -743,6 +872,19 @@ export function initModal(container) {
     }
   });
 }
+
+### supabase.js
+
+// web/scripts/supabase.js
+
+// IMPORTANT: Replace with your actual Supabase URL and Anon Key.
+// These are safe to be public in your frontend code.
+const SUPABASE_URL = 'https://gfbafuojtjtnbtfdhiqo.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmYmFmdW9qdGp0bmJ0ZmRoaXFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NDI1NzUsImV4cCI6MjA2OTMxODU3NX0.GzbJ7BjRwecWHab9tCq-DeTnGz5VUTVgkQubqhAkHO8';
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 ### theme.js
 
@@ -1118,6 +1260,132 @@ export function displayLoading(query = '') {
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.3;
+}
+
+/* Add this to the end of web/styles/_chat.css */
+
+.show-more-btn {
+  display: block;
+  width: calc(100% - 2rem);
+  margin: 1rem auto 0;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: center;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--text);
+  transition: all 0.2s;
+}
+
+.show-more-btn:hover {
+  background-color: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+}
+
+.show-more-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+### _filters.css
+
+.filter-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background-color: rgba(0,0,0,0.05);
+  border-radius: var(--card-radius);
+  margin-bottom: 2rem;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-grow: 1;
+  min-width: 150px; /* Ensures groups don't get too squished */
+}
+
+.filter-group label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.filter-group input[type="text"],
+.filter-group select {
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1rem;
+  width: 100%;
+}
+
+.filter-group input[type="range"] {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+#runtime-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.9;
+  text-align: center;
+  margin-top: -0.25rem;
+}
+
+#apply-filters-btn {
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--card-radius);
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  height: fit-content;
+}
+
+#apply-filters-btn:hover {
+  background: var(--burgundy);
+  border-color: var(--burgundy);
+  color: var(--bg);
+}
+
+/* Add to your CSS, e.g., in _filters.css or _search.css */
+
+.filter-toggle-container {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.secondary-button {
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--card-radius);
+  border: 1px solid var(--text);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.secondary-button:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+}
+
+.filter-section.hidden {
+  display: none;
 }
 
 ### _globals.css
@@ -1536,6 +1804,34 @@ body {
   cursor: not-allowed;
 }
 
+/* Add to your CSS, e.g., in _filters.css or _search.css */
+
+.filter-toggle-container {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.secondary-button {
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--card-radius);
+  border: 1px solid var(--text);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.secondary-button:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+}
+
+.filter-section.hidden {
+  display: none;
+}
+
 ### main.css
 
 /* web/styles/main.css */
@@ -1544,6 +1840,7 @@ body {
 @import url('_globals.css');
 @import url('_header.css');
 @import url('_search.css');
+@import url('_filters.css');
 @import url('_card.css');
 @import url('_chat.css');
 @import url('_modal.css');

@@ -2,9 +2,9 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const SB_URL = Deno.env.get("SB_URL")!;
-const SB_SERVICE_ROLE = Deno.env.get("SB_SERVICE_ROLE")!;
-const supabase = createClient(SB_URL, SB_SERVICE_ROLE);
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -22,23 +22,19 @@ Deno.serve(async (req) => {
       throw new Error("tmdb_id is required.");
     }
 
-    // --- ROBUSTNESS CHECK ---
-    // Defensively parse the ID, as it might come in as a string from the client.
     const numericId = parseInt(String(tmdb_id), 10);
 
     if (isNaN(numericId)) {
         throw new Error("Invalid tmdb_id format. Must be a number.");
     }
-    // --- END CHECK ---
 
     const { data, error } = await supabase
       .from("media")
       .select("*")
-      .eq("tmdb_id", numericId) // Use the sanitized numericId
+      .eq("tmdb_id", numericId) 
       .single();
 
     if (error) {
-        // This will now give a more useful error if the ID doesn't exist
         console.error(`Supabase query failed for tmdb_id ${numericId}:`, error);
         throw new Error(`No media found with TMDb ID ${numericId}.`);
     }

@@ -12,9 +12,11 @@ scripts
 +-- ping-supa.cjs
 +-- ping.ts
 +-- refresh_existing.ts
-L-- tmdb_seed.ts
++-- smart-seeder.ts
++-- tmdb_seed.ts
+L-- user_simulation.ts
 
-📜 Listing scripts with extensions: .ts, .txt, .tsx, .js, .jsx, .py, .html, .json, .css, .sql, .toml, .cjs, .ps1
+📜 Listing scripts with extensions: .ts, .txt, .tsx, .js, .jsx, .py, .html, .json, .css, .sql, .toml, .ps1
 ----------------------------------------
 
 ### audit.ts
@@ -244,21 +246,6 @@ main().catch((err) => {
   process.exit(1);
 });
 
-### ping-supa.cjs
-
-const { createClient } = require("@supabase/supabase-js");
-
-const supa = createClient(
-  process.env.SB_URL,
-  process.env.SB_SERVICE_ROLE_KEY
-);
-
-(async () => {
-  const { data, error } = await supa.from("media").select("*").limit(1);
-  if (error) throw error;
-  console.log("✅ pulled row:", data);
-})();
-
 ### ping.ts
 
 // ping.ts
@@ -416,6 +403,295 @@ async function fetchDetails(kind: "movie" | "tv", id: number) {
     console.log(`\n\n🎉 Full Refresh Finished! Processed a total of ${totalItemsProcessed} items.`);
 })();
 
+### smart-seeder.ts
+
+// scripts/smart-seeder.ts
+
+import "dotenv/config";
+import { createClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
+import { promises as fs } from "fs";
+import path from "path";
+
+// --- CONFIGURATION ---
+const TARGET_TOTAL_ITEMS = 100_000;
+const TMD_DB_REQUEST_DELAY_MS = 300;
+const STRATEGY_DELAY_MS = 5000;
+const MAX_API_RETRIES = 5;
+const INITIAL_RETRY_DELAY_MS = 2000;
+const PAGE_SIZE = 1000; // Chunk size for fetching existing IDs
+
+// --- CLIENTS ---
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE! || !process.env.OPENAI_KEY || !process.env.TMDB_V3_API_KEY) {
+  console.error("Missing required environment variables. Ensure SUPABASE_URL, SUPABASE_SERVICE_ROLE, OPENAI_KEY, and TMDB_V3_API_KEY are set.");
+  process.exit(1);
+}
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE!);
+const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY });
+const TMDB_V3_API_KEY = process.env.TMDB_V3_API_KEY;
+const TMDB_API_BASE = "https://api.themoviedb.org/3";
+
+// --- ANTI-DUPLICATE CACHE ---
+let existingTmdbIds = new Set<number>();
+
+async function loadExistingIds() {
+  console.log("Loading all existing TMDb IDs from the database into cache...");
+  let page = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("media")
+      .select("tmdb_id")
+      .range(from, to);
+
+    if (error) {
+      console.error(`❌ Failed to load IDs on page ${page}:`, error.message);
+      hasMore = false;
+      return;
+    }
+    if (data.length > 0) {
+      data.forEach(item => existingTmdbIds.add(item.tmdb_id));
+      console.log(`  - Loaded ${data.length} IDs (page ${page + 1}). Cache size: ${existingTmdbIds.size}`);
+    }
+    if (data.length < PAGE_SIZE) {
+      hasMore = false;
+    }
+    page++;
+  }
+  console.log(`✅ Cache loading complete. Found ${existingTmdbIds.size} existing items.`);
+}
+
+// --- HELPER FUNCTIONS ---
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_API_RETRIES): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After");
+        const delayTime = (retryAfter ? parseInt(retryAfter, 10) * 1000 : INITIAL_RETRY_DELAY_MS) + (i * 1000);
+        console.warn(`⚠️ TMDb Rate Limit hit. Retrying in ${delayTime / 1000}s...`);
+        await delay(delayTime);
+        continue;
+      }
+      if (response.ok) return response.json();
+      throw new Error(`API error: ${response.status} - ${await response.text()}`);
+    } catch (error: any) {
+      if (i === retries - 1) {
+        console.error(`❌ Final attempt failed for ${url}. Error:`, error.message);
+        return null;
+      }
+      const delayTime = INITIAL_RETRY_DELAY_MS * Math.pow(2, i);
+      console.warn(`⚠️ Request failed for ${url}. Retrying in ${delayTime / 1000}s...`);
+      await delay(delayTime);
+    }
+  }
+  return null;
+}
+
+async function getTmdbConfig() {
+  return fetchWithRetry(`${TMDB_API_BASE}/configuration?api_key=${TMDB_V3_API_KEY}`, {});
+}
+
+async function fetchTmdbPage(endpoint: string, params: Record<string, string>, page: number = 1) {
+  const url = new URL(`${TMDB_API_BASE}${endpoint}`);
+  url.searchParams.set("api_key", TMDB_V3_API_KEY);
+  url.searchParams.set("page", String(page));
+  for (const key in params) {
+    url.searchParams.set(key, params[key]);
+  }
+  return fetchWithRetry(url.toString(), {});
+}
+
+async function getDetailedMedia(type: "movie" | "tv", id: number) {
+  const url = `${TMDB_API_BASE}/${type}/${id}?api_key=${TMDB_V3_API_KEY}&append_to_response=videos,credits,images,watch/providers`;
+  return fetchWithRetry(url, {});
+}
+
+async function upsertMediaToSupabase(mediaItems: any[], tmdbConfig: any): Promise<number> {
+  const rows = mediaItems.filter(Boolean).filter((d: any) => d.overview && d.poster_path && d.genres?.length > 0)
+    .map((d: any) => {
+      const isMovie = d.title;
+      const officialTrailer = d.videos?.results?.find((v: any) => v.site === "YouTube" && v.type === "Trailer" && v.official);
+      const director = d.credits?.crew?.find((c: any) => c.job === "Director");
+      const logo = d.images?.logos?.find((l: any) => l.iso_639_1 === "en") || d.images?.logos?.[0];
+
+      const topCast = d.credits?.cast?.slice(0, 10).map((actor: any) => ({
+        name: actor.name,
+        character: actor.character,
+        profile_path: actor.profile_path ? `${tmdbConfig.secure_base_url}w185${actor.profile_path}` : null
+      }));
+
+      return {
+        tmdb_id: d.id, media_type: isMovie ? "movie" : "tv", title: d.title ?? d.name!,
+        synopsis: d.overview, genres: d.genres.map((g: any) => g.name).filter(Boolean),
+        runtime: d.runtime ?? d.episode_run_time?.[0] ?? null,
+        poster_path: `${tmdbConfig.secure_base_url}w500${d.poster_path}`,
+        release_date: d.release_date ?? d.first_air_date ?? null,
+        popularity: d.popularity, tagline: d.tagline || null, director: director?.name || null,
+        trailer_key: officialTrailer?.key || null,
+        backdrop_path: d.backdrop_path ? `${tmdbConfig.secure_base_url}w1280${d.backdrop_path}` : null,
+        logo_path: logo ? `${tmdbConfig.secure_base_url}w300${logo.file_path}` : null,
+        top_cast: topCast || null, watch_providers: d['watch/providers']?.results?.US || null,
+        spoken_languages: d.spoken_languages ?? null, embedding: null,
+      };
+    });
+
+  if (rows.length === 0) return 0;
+
+  const { error } = await supabase.from("media").upsert(rows, { onConflict: "tmdb_id", ignoreDuplicates: true });
+  if (error) {
+    console.error("❌ Supabase upsert error:", error.message);
+    return 0;
+  }
+  
+  rows.forEach(row => existingTmdbIds.add(row.tmdb_id));
+  return rows.length;
+}
+
+interface DbStats {
+  totalItems: number;
+  genres: Record<string, number>;
+  decades: Record<string, number>;
+}
+
+interface TmdbQuerySuggestion {
+  endpoint: "/discover/movie" | "/discover/tv";
+  params: Record<string, string>;
+  description: string;
+}
+
+async function fetchDbStatistics(): Promise<DbStats> {
+    const { count, error: totalError } = await supabase.from("media").select('*', { count: 'exact', head: true });
+    if (totalError) { console.error("Error fetching total count:", totalError); return { totalItems: 0, genres: {}, decades: {} }; }
+
+    const { data: genreData, error: genreError } = await supabase.rpc("get_genre_counts");
+    if (genreError) console.error("Error fetching genre counts:", genreError);
+
+    const { data: decadeData, error: decadeError } = await supabase.rpc("get_decade_counts");
+    if (decadeError) console.error("Error fetching decade counts:", decadeError);
+
+    const genres = (genreData as any[] || []).reduce((acc, g) => { acc[g.genre] = g.count; return acc; }, {});
+    const decades = (decadeData as any[] || []).reduce((acc, d) => { acc[d.decade] = d.count; return acc; }, {});
+
+    return { totalItems: count ?? 0, genres, decades };
+}
+
+const llmStrategyPrompt = (dbStats: DbStats, target: number) => `
+You are an expert content strategist for a movie and TV show database. Your goal is to help expand the database from its current state of ${dbStats.totalItems} items to a target of ${target}. The database already contains most of the globally popular movies and TV shows.
+
+Current Database Stats:
+- Genre Distribution (top 10): ${JSON.stringify(Object.entries(dbStats.genres).sort(([,a],[,b])=>b-a).slice(0,10))}
+- Decade Distribution (last 5 decades): ${JSON.stringify(Object.entries(dbStats.decades).sort().slice(-5))}
+
+Suggest 8 diverse TMDb API queries to discover NEW and INTERESTING content. Your primary goal is to find content that is NOT LIKELY to be in the database already. Focus on:
+1.  **Niche Genres & Keywords:** Instead of just "Action", suggest "Action films with a 'heist' keyword".
+2.  **Older or Underrepresented Decades:** Look for content from the 1960s, 1950s, etc.
+3.  **International Cinema:** Use 'with_origin_country' to suggest content from different countries (e.g., KR for South Korea, JP for Japan).
+4.  **Highly Rated but Less Popular:** Use 'sort_by: vote_average.desc' combined with a 'vote_count.gte: 100' to find hidden gems.
+
+You MUST output a JSON object with a single key "strategies".
+Example:
+{
+  "strategies": [
+    { "endpoint": "/discover/movie", "params": { "sort_by": "vote_average.desc", "vote_count.gte": "100", "with_genres": "99", "primary_release_year": "1985" }, "description": "Highly-rated 1985 documentaries" },
+    { "endpoint": "/discover/tv", "params": { "with_genres": "10765", "with_origin_country": "JP" }, "description": "Japanese Sci-Fi & Fantasy Anime" }
+  ]
+}
+`;
+
+async function generateTmdbQueryStrategies(dbStats: DbStats): Promise<TmdbQuerySuggestion[]> {
+  console.log("🧠 Generating new TMDb query strategies with LLM...");
+  const messages = [{ role: "system", content: llmStrategyPrompt(dbStats, TARGET_TOTAL_ITEMS) }];
+  
+  const resp = await openai.chat.completions.create({
+    model: "gpt-4o-mini", messages, temperature: 0.8, response_format: { type: "json_object" }
+  });
+  
+  try {
+    const content = resp.choices[0].message.content!;
+    const parsed = JSON.parse(content);
+    if (!parsed.strategies || !Array.isArray(parsed.strategies)) throw new Error("LLM did not return a valid 'strategies' array.");
+    return parsed.strategies;
+  } catch (e) {
+    console.error("❌ Failed to parse LLM strategy response:", e);
+    return [];
+  }
+}
+
+async function runSmartSeeder() {
+  console.log(`🚀 Starting Smart Seeder: Target ${TARGET_TOTAL_ITEMS} items.`);
+  
+  await loadExistingIds();
+  
+  const tmdbConfig = await getTmdbConfig();
+  if (!tmdbConfig) { console.error("Could not fetch TMDb configuration. Aborting."); return; }
+
+  let currentItemCount = existingTmdbIds.size;
+
+  while (currentItemCount < TARGET_TOTAL_ITEMS) {
+    console.log(`\n📊 Current DB count: ${currentItemCount} / ${TARGET_TOTAL_ITEMS}.`);
+    
+    const dbStats = await fetchDbStatistics();
+    currentItemCount = dbStats.totalItems;
+
+    const strategies = await generateTmdbQueryStrategies(dbStats);
+
+    if (strategies.length === 0) {
+      console.warn("LLM failed to generate strategies. Waiting before retry.");
+      await delay(STRATEGY_DELAY_MS * 3);
+      continue;
+    }
+
+    for (const strategy of strategies) {
+      if (currentItemCount >= TARGET_TOTAL_ITEMS) break;
+
+      console.log(`\n▶️ Executing Strategy: "${strategy.description}"`);
+      
+      const pagesToFetch = 3;
+      let newItemsThisStrategy = 0;
+      
+      for (let page = 1; page <= pagesToFetch; page++) {
+        if ((await fetchDbStatistics()).totalItems >= TARGET_TOTAL_ITEMS) break;
+        
+        const data = await fetchTmdbPage(strategy.endpoint, strategy.params, page);
+        if (!data?.results || data.results.length === 0) {
+          console.log(`  - No more results for this strategy on page ${page}.`);
+          break;
+        }
+
+        const newItems = data.results.filter((item: any) => !existingTmdbIds.has(item.id));
+        if (newItems.length === 0) {
+          console.log(`  - Page ${page} contains only items we already have. Skipping detail fetch.`);
+          continue;
+        }
+        console.log(`  - Page ${page}: Found ${newItems.length} genuinely new items to process.`);
+        
+        const detailedItems = (await Promise.all(
+          newItems.map((item: any) => getDetailedMedia(item.title ? "movie" : "tv", item.id))
+        )).filter(Boolean);
+
+        const processedCount = await upsertMediaToSupabase(detailedItems, tmdbConfig.images);
+        newItemsThisStrategy += processedCount;
+        
+        await delay(TMD_DB_REQUEST_DELAY_MS);
+      }
+      
+      const latestCount = (await fetchDbStatistics()).totalItems;
+      console.log(`  - Strategy complete. Added ${newItemsThisStrategy} new items. DB total is now: ${latestCount}`);
+      currentItemCount = latestCount;
+    }
+    await delay(STRATEGY_DELAY_MS);
+  }
+
+  console.log(`\n🎉 Smart Seeder Finished! Reached target. Final count: ${currentItemCount}.`);
+}
+
+runSmartSeeder().catch(console.error);
+
 ### tmdb_seed.ts
 
 // scripts/tmdb_seed.ts
@@ -565,6 +841,154 @@ async function processPage(page: number, config: any) {
     }
     console.log(`\n🎉 Seeder script finished!`);
 })();
+
+### user_simulation.ts
+
+// scripts/user_simulation.ts
+
+import "dotenv/config";
+import { createClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
+import { promises as fs } from "fs";
+import path from "path";
+
+// --- CONFIGURATION ---
+const MAX_TURNS_PER_SESSION = 15;
+const OUTPUT_DIR = path.join(process.cwd(), "chat_experiments");
+
+// --- CLIENTS ---
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.OPENAI_KEY) {
+  throw new Error("Missing required environment variables (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_KEY)");
+}
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY });
+
+// --- SYSTEM PROMPT for our AI User Persona ---
+const userPersonaSystemPrompt = `
+You are a creative and slightly unpredictable user testing a new movie recommendation chatbot. Your goal is to simulate a natural, multi-turn conversation.
+
+1.  **On your first turn, give a simple, broad request.** (e.g., "show me some comedies").
+2.  **For all subsequent turns, you will be given the chatbot's last response.** Based on this, generate a natural follow-up.
+3.  **Your follow-ups MUST be varied.** Sometimes refine the request ("from the 90s"), sometimes add a filter ("starring Tom Hanks"), sometimes change your mind completely ("actually, I want a horror movie"), and sometimes complain if the results are bad ("these aren't what I asked for").
+4.  **Your ONLY output should be the raw text of your next chat message.** Do not add any commentary, labels, or quotation marks.
+`;
+
+// --- TYPES ---
+interface ChatTurn {
+  turnNumber: number;
+  userPrompt: string;
+  botProse: string;
+  botRecs: any[];
+}
+
+async function callStreamGuru(prompt: string, history: any[]): Promise<{ prose: string; recs: any[] }> {
+  const { data: aiResponse, error: aiError } = await supabase.functions.invoke('get-ai-response', {
+    body: { history: [...history, { role: 'user', content: prompt }] },
+  });
+  if (aiError) throw new Error(`get-ai-response error: ${aiError.message}`);
+  
+  const { ai_message, filters } = aiResponse;
+  let recommendations: any[] = [];
+
+  const hasFilters = filters && Object.keys(filters).length > 0;
+  if (hasFilters) {
+    const { data: recData, error: recError } = await supabase.functions.invoke('get-recommendations', {
+      body: { message: prompt, filters },
+    });
+    if (recError) console.warn(`get-recommendations error: ${recError.message}`);
+    recommendations = recData?.recommendations || [];
+  }
+
+  return { prose: ai_message, recs: recommendations };
+}
+
+async function generateUserPrompt(history: { role: 'user' | 'assistant'; content: string }[]): Promise<string> {
+  const messages: any[] = [{ role: "system", content: userPersonaSystemPrompt }, ...history];
+  
+  const resp = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages,
+    temperature: 1.1,
+  });
+  return resp.choices[0].message.content!;
+}
+
+// --- THIS FUNCTION CONTAINS THE FIX ---
+async function writeLogToFile(sessionLog: ChatTurn[]) {
+  let markdownContent = `# Chatbot Experiment Log\n\n**Session Date:** ${new Date().toISOString()}\n\n---\n\n`;
+
+  for (const turn of sessionLog) {
+    markdownContent += `## Turn ${turn.turnNumber}\n\n`;
+    markdownContent += `### 🤵 User Prompt\n\n\`\`\`text\n${turn.userPrompt}\n\`\`\`\n\n`;
+    markdownContent += `### 🤖 Bot Response\n\n**Prose:**\n\`\`\`text\n${turn.botProse}\n\`\`\`\n\n`;
+
+    // We now "quantize" the recommendation object to only include the most relevant fields for analysis.
+    const recsForLog = turn.botRecs.map(rec => ({
+        tmdb_id: rec.tmdb_id,
+        title: rec.title,
+        genres: rec.genres,
+        release_date: rec.release_date,
+        // We extract just the actor names for easier readability.
+        top_cast: rec.top_cast?.map((actor: any) => actor.name) || [],
+        synopsis: rec.synopsis
+    }));
+
+    markdownContent += `**Recommendations Found (${recsForLog.length}):**\n\`\`\`json\n${JSON.stringify(recsForLog, null, 2)}\n\`\`\`\n\n`;
+    markdownContent += `---\n\n`;
+  }
+  // --- END OF FIX ---
+
+  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `session_log_${timestamp}.md`;
+  const filepath = path.join(OUTPUT_DIR, filename);
+
+  await fs.writeFile(filepath, markdownContent);
+  console.log(`✅ Experiment complete. Report saved to: ${filepath}`);
+}
+
+async function runSimulation() {
+  console.log("🚀 Starting new user simulation experiment...");
+  const sessionLog: ChatTurn[] = [];
+  const gptHistory: { role: 'user' | 'assistant'; content: string }[] = [];
+  let consecutiveEmptyTurns = 0; // --- FIX: Add a counter ---
+
+  for (let i = 1; i <= MAX_TURNS_PER_SESSION; i++) {
+    console.log(`- Starting turn ${i}...`);
+    const userPrompt = await generateUserPrompt(i === 1 ? [] : gptHistory);
+    console.log(`  - User Persona says: "${userPrompt}"`);
+
+    const botResponse = await callStreamGuru(userPrompt, gptHistory);
+
+    sessionLog.push({
+      turnNumber: i,
+      userPrompt,
+      botProse: botResponse.prose,
+      botRecs: botResponse.recs,
+    });
+    
+    // --- FIX: Logic to detect the end of the conversation ---
+    if (botResponse.recs.length === 0) {
+      consecutiveEmptyTurns++;
+    } else {
+      consecutiveEmptyTurns = 0;
+    }
+    if (consecutiveEmptyTurns >= 2) {
+      console.log("✅ Conversation appears to have ended naturally. Stopping simulation.");
+      break;
+    }
+    // --- END OF FIX ---
+
+    gptHistory.push({ role: 'user', content: userPrompt });
+    const botSummaryForGpt = `My response: "${botResponse.prose}". Recommended movies: [${botResponse.recs.map(r => r.title).join(", ")}]`;
+    gptHistory.push({ role: 'assistant', content: botSummaryForGpt });
+    
+    if (i === MAX_TURNS_PER_SESSION) break;
+  }
+  await writeLogToFile(sessionLog);
+}
+
+runSimulation().catch(console.error);
 
 ### auditor_prompt.txt
 

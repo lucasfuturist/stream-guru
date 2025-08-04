@@ -2,52 +2,85 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-const SB_URL = Deno.env.get("SB_URL")!;
-const SB_SERVICE_ROLE = Deno.env.get("SB_SERVICE_ROLE")!;
-const OPENAI_KEY = Deno.env.get("OPENAI_KEY")!; // Still need this for embeddings
-
-const supabase = createClient(SB_URL, SB_SERVICE_ROLE);
+const sb = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+);
+const openKey = Deno.env.get("OPENAI_KEY")!;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-async function getEmbedding(text: string): Promise<number[]> {
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
+async function embed(text: string) {
+  const r = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENAI_KEY}` },
-    body: JSON.stringify({ model: "text-embedding-3-small", input: text.slice(0, 8191) }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${openKey}` },
+    body: JSON.stringify({ model: "text-embedding-3-small", input: text })
   });
-  if (!res.ok) throw new Error(`OpenAI embedding failed: ${await res.text()}`);
-  const { data } = await res.json();
-  return data[0].embedding;
+  if (!r.ok) {
+    const errorBody = await r.json();
+    throw new Error(`OpenAI API Error: ${errorBody.error?.message}`);
+  }
+  const j = await r.json();
+  return j.data[0].embedding as number[];
+}
+
+async function logQuery(q: string) {
+  sb.from("query_log").insert({ user_query: q }).then(() => {}).catch(() => {});
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
-
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
-    const { message, filters } = await req.json();
-    if (!message || !filters) throw new Error("message and filters are required");
+    const { message, filters = {}, limit = 10 } = await req.json();
+    if (!message) throw new Error("`message` is required");
+    await logQuery(message);
 
-    const vector = await getEmbedding(message);
+    let embeddingText = message;
+    if (filters.genres || filters.actor) {
+        const genreText = filters.genres ? `movies in the genres: ${filters.genres.join(', ')}` : '';
+        const actorText = filters.actor ? `movies starring actor: ${filters.actor}` : '';
+        embeddingText = [genreText, actorText].filter(Boolean).join('. ');
+    }
 
-    const { data, error } = await supabase.rpc("match_media", {
-      in_query_embedding: vector,
+    const vec = await embed(embeddingText);
+
+    // --- THIS IS THE FIX ---
+    // We are now calling the new, unambiguous function 'v2_match_media'.
+    let { data: recs, error } = await sb.rpc("v2_match_media", {
+      in_user_vector: vec,
       in_genres: filters.genres ?? null,
       in_max_runtime: filters.max_runtime ?? null,
-      in_limit: 4,
+      in_year_min: filters.release_year_min ?? null,
+      in_year_max: filters.release_year_max ?? null,
+      match_count: limit
     });
+    // --- END OF FIX ---
 
-    if (error) throw error;
+    if (error) {
+      console.error("Database error:", error.message);
+      throw error;
+    }
+    
+    if ((!recs || recs.length === 0) && filters.actor && filters.genres) {
+      console.log(`[Fallback] Retrying with genre only.`);
+      const { data: fallbackRecs } = await sb.rpc("v2_match_media", {
+        in_user_vector: vec, in_genres: filters.genres, in_max_runtime: null,
+        in_year_min: null, in_year_max: null, match_count: limit
+      });
+      recs = fallbackRecs;
+    }
 
-    return new Response(
-      JSON.stringify({ recommendations: data ?? [] }),
-      { headers: { "Content-Type": "application/json", ...CORS } }
-    );
+    return new Response(JSON.stringify({ recommendations: recs ?? [] }), {
+      headers: { ...CORS, "Content-Type": "application/json" }
+    });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json", ...CORS } });
+    console.error("Function error:", err.message);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...CORS, "Content-Type": "application/json" }
+    });
   }
 });

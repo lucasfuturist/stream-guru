@@ -1,0 +1,94 @@
+.filter-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background-color: rgba(0,0,0,0.05);
+  border-radius: var(--card-radius);
+  margin-bottom: 2rem;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex-grow: 1;
+  min-width: 150px; /* Ensures groups don't get too squished */
+}
+
+.filter-group label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.filter-group input[type="text"],
+.filter-group select {
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--text);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1rem;
+  width: 100%;
+}
+
+.filter-group input[type="range"] {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+#runtime-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.9;
+  text-align: center;
+  margin-top: -0.25rem;
+}
+
+#apply-filters-btn {
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--card-radius);
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  height: fit-content;
+}
+
+#apply-filters-btn:hover {
+  background: var(--burgundy);
+  border-color: var(--burgundy);
+  color: var(--bg);
+}
+
+/* Add to your CSS, e.g., in _filters.css or _search.css */
+
+.filter-toggle-container {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.secondary-button {
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--card-radius);
+  border: 1px solid var(--text);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.secondary-button:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+}
+
+.filter-section.hidden {
+  display: none;
+}

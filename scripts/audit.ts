@@ -1,96 +1,65 @@
-// scripts/audit.ts
+/**
+ * offline quality audit & vibe discovery
+ * run:  ts-node scripts/audit.ts
+ */
 
-import "dotenv/config";
+import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
-// This syntax is correct for Deno
-import inquisitorPrompt from "./utils/inquisitor_prompt.txt" with { type: "text" };
-import auditorPrompt from "./utils/auditor_prompt.txt" with { type: "text" };
 
-// --- CONFIG ---
-const API_BASE = "https://gfbafuojtjtnbtfdhiqo.functions.supabase.co";
-const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY! });
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const ai = new OpenAI({ apiKey: process.env.OPENAI_KEY! });
 
-// --- API HELPERS (to call our live functions) ---
-async function getAiResponse(message: string) {
-  const res = await fetch(`${API_BASE}/get-ai-response`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
-  });
-  return await res.json();
-}
-async function getMediaMatches(message: string, filters: any) {
-  const res = await fetch(`${API_BASE}/get-recommendations`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, filters }),
-  });
-  return await res.json();
+/* broad vibe coach */
+const coachSys = `
+you invent broad vibe tags based on recommendation quality.
+return ONLY json:
+{ "tag":"<1-2 words>",
+  "genres":["sci-fi","drama"],
+  "reason":"why this tag helps" }
+`.trim();
+
+function clean(str?: string | null) {
+  return (str ?? "").toLowerCase().trim();
 }
 
-// --- MAIN AUDIT SCRIPT ---
-async function main() {
-  console.log("🤖 Initializing AI Auditor...");
+export async function main() {
+  /* pull a batch of recent low-score recs or whatever logic u had */
+  const { data: rows } = await sb.from("recommendation_log").select("*").limit(25);
 
-  // 1. Inquisitor generates test cases
-  console.log("🕵️ Step 1: Inquisitor is generating test cases...");
-  const inquisitorRes = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "system", content: inquisitorPrompt }],
-    response_format: { type: "json_object" },
-  });
-  const { queries } = JSON.parse(inquisitorRes.choices[0].message.content!);
-  console.log(`   Generated ${queries.length} queries.`);
+  for (const row of rows ?? []) {
+    const { query, recommendations, score } = row;
 
-  let fullReport = `# StreamGuru AI Audit Report\n\nGenerated on: ${new Date().toISOString()}\n\n---\n\n`;
+    if (score >= 4) continue; // good enough
 
-  // 2. Loop through each query and have the Auditor evaluate it
-  let i = 1;
-  for (const query of queries) {
-    console.log(`\n🧪 Testing Query ${i}/${queries.length}: "${query}"`);
-
-    // 3. Get StreamGuru's response
-    console.log("   - Calling StreamGuru API...");
-    const { ai_message, filters } = await getAiResponse(query);
-    const { recommendations } = await getMediaMatches(query, filters);
-    await delay(1000); // Avoid rate-limiting
-
-    // 4. Construct the prompt for the Auditor
-    const auditContent = `
-      Original User Query: "${query}"
-      ---
-      StreamGuru's Conversational Response: "${ai_message}"
-      ---
-      StreamGuru's Parsed Filters: ${JSON.stringify(filters)}
-      ---
-      StreamGuru's Recommendations: ${JSON.stringify(recommendations?.map((r: any) => r.title) ?? [])}
-    `;
-
-    // 5. Auditor evaluates the response
-    console.log("   - Auditor is evaluating the response...");
-    const auditorRes = await openai.chat.completions.create({
+    /* ask coach for a vibe tag */
+    const coach = await ai.chat.completions.create({
       model: "gpt-4o",
+      temperature: 0,
       messages: [
-        { role: "system", content: auditorPrompt },
-        { role: "user", content: auditContent },
+        { role: "system", content: coachSys },
+        {
+          role: "user",
+          content: JSON.stringify({ query, recs: recommendations })
+        }
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: "json_object" }
     });
-    const analysis = JSON.parse(auditorRes.choices[0].message.content!);
-    console.log(`   - Score: ${analysis.score}/5`);
-    
-    // 6. Append the findings to our report
-    fullReport += `## Query ${i}: "${query}"\n\n`;
-    fullReport += `**Score:** ${analysis.score}/5\n\n`;
-    fullReport += `**Justification:** ${analysis.justification}\n\n`;
-    fullReport += `**Strengths:** ${analysis.strengths}\n\n`;
-    fullReport += `**Suggestion for Improvement:** ${analysis.suggestion}\n\n`;
-    fullReport += `**Raw Response:**\n\`\`\`json\n${JSON.stringify({ ai_message, recommendations }, null, 2)}\n\`\`\`\n\n---\n\n`;
-    i++;
-  }
 
-  // 7. Save the final report
-  await Deno.writeTextFile("audit_report.md", fullReport);
-  console.log("\n✅ Audit complete! Report saved to audit_report.md");
+    const { tag, genres, reason } = JSON.parse(coach.choices[0].message.content);
+
+    const vibe = clean(tag);
+    if (!vibe) continue;
+
+    await sb.from("vibe_categories").insert({
+      session_id: crypto.randomUUID(),
+      vibe_tag: vibe,
+      genres: genres ?? [],
+      examples: recommendations.map((r: any) => r.tmdb_id),
+      notes: reason
+    });
+
+    console.log(`🧠 logged vibe '${vibe}'`);
+  }
 }
 
-main().catch(console.error);
+if (import.meta.main) main().catch(console.error);

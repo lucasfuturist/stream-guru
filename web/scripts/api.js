@@ -1,55 +1,68 @@
 // web/scripts/api.js
 
-const FUNCTIONS_BASE = 'https://gfbafuojtjtnbtfdhiqo.functions.supabase.co';
+import { supabase } from './supabase.js';
 
 /**
- * Fetches only the AI's witty response and parsed filters.
- * @param {string} message - The user's search query.
- * @returns {Promise<{ai_message: string, filters: object}>}
+ * Calls the main chatbot orchestrator function. This is the primary method for the chat UI.
+ * @param {string} prompt - The user's latest message.
+ * @returns {Promise<object>} - The full, audited response from the orchestrator.
  */
-export async function fetchAiResponse(message) {
-  const response = await fetch(`${FUNCTIONS_BASE}/get-ai-response`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+export async function callChatSession(prompt) {
+  // We are now calling the new, consolidated, and much faster 'chat-final' function.
+  const { data, error } = await supabase.functions.invoke('chat-final', {
+    body: { prompt },
   });
-  if (!response.ok) throw new Error('Failed to get AI response.');
-  return await response.json();
+
+  if (error) throw new Error(`Network error calling chat-final: ${error.message}`);
+  if (data.error) throw new Error(`Application error in chat-final: ${data.error}`);
+  return data;
 }
 
 /**
- * Fetches media recommendations based on a message and pre-parsed filters.
- * @param {string} message - The user's original query.
- * @param {object} filters - The filters parsed by the AI.
+ * Fetches trending media using the Supabase client.
  * @returns {Promise<Array>}
  */
-export async function fetchMediaMatches(message, filters) {
-  const response = await fetch(`${FUNCTIONS_BASE}/get-recommendations`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, filters }),
-  });
-  if (!response.ok) throw new Error('Failed to fetch recommendations.');
-  const { recommendations } = await response.json();
-  return recommendations;
-}
-
-// --- Other API functions remain the same ---
-
 export async function fetchTrending() {
-  const response = await fetch(`${FUNCTIONS_BASE}/trending`);
-  if (!response.ok) throw new Error('Could not load trending titles.');
-  const { trending } = await response.json();
-  return trending;
+  const { data, error } = await supabase.functions.invoke('trending');
+  if (error) throw new Error('Could not load trending titles.');
+  return data.trending;
 }
 
+/**
+ * Fetches media details using the Supabase client.
+ * @param {number} tmdb_id - The TMDb ID of the media.
+ * @returns {Promise<object>}
+ */
 export async function fetchMediaDetails(tmdb_id) {
-  const response = await fetch(`${FUNCTIONS_BASE}/get-details`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tmdb_id }),
+  const { data, error } = await supabase.functions.invoke('get-details', {
+    body: { tmdb_id },
   });
-  if (!response.ok) throw new Error('Could not load media details.');
-  const { details } = await response.json();
-  return details;
+  if (error) throw new Error('Could not load media details.');
+  return data.details;
+}
+
+/**
+ * Fetches media via a direct keyword search.
+ * @param {string} query - The user's search term.
+ * @returns {Promise<Array>}
+ */
+export async function fetchSearchResults(query) {
+  const { data, error } = await supabase.functions.invoke('search-media', {
+    body: { query },
+  });
+  if (error) throw new Error('Failed to fetch search results.');
+  return data.results;
+}
+
+/**
+ * Fetches media based on a structured filter object.
+ * @param {object} filters - The filter criteria.
+ * @returns {Promise<Array>}
+ */
+export async function fetchFilteredMedia(filters) {
+  const { data, error } = await supabase.functions.invoke('filter-media', {
+    body: { filters },
+  });
+  if (error) throw new Error('Failed to fetch filtered results.');
+  return data.results;
 }

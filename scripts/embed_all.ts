@@ -23,9 +23,10 @@ async function main() {
   if (!process.env.OPENAI_KEY) throw new Error("OPENAI_KEY missing");
 
   while (true) {
+    // UPDATED: Select 'spoken_languages' for richer embeddings
     const { data: rows, error } = await supabase
       .from("media")
-      .select("id, title, synopsis, genres")
+      .select("id, title, synopsis, genres, director, top_cast, spoken_languages")
       .is("embedding", null)
       .limit(BATCH_SIZE);
 
@@ -35,12 +36,30 @@ async function main() {
       return;
     }
 
-    const inputs = rows.map(
-      (r) => `${r.title}. ${r.synopsis}. genres: ${r.genres.join(", ")}`
-    );
+    // UPDATED: Create a more descriptive input string for embeddings
+    const inputs = rows.map((r) => {
+      const castNames = (r.top_cast ?? [])
+        .map((actor: { name: string }) => actor.name)
+        .join(", ");
+      
+      // NEW: Extract language names for the embedding string
+      const languageNames = (r.spoken_languages ?? [])
+        .map((lang: { english_name: string }) => lang.english_name)
+        .filter(Boolean)
+        .join(", ");
+
+      let richText = `Title: ${r.title}.`;
+      if (r.director) richText += ` Director: ${r.director}.`;
+      if (castNames) richText += ` Cast: ${castNames}.`;
+      // NEW: Add languages to the embedding string
+      if (languageNames) richText += ` Languages: ${languageNames}.`;
+      richText += ` Synopsis: ${r.synopsis}.`;
+      if (r.genres?.length) richText += ` Genres: ${r.genres.join(", ")}.`;
+      
+      return richText;
+    });
 
     let resp;
-    // Step 1: Fetch embeddings from OpenAI (with retry)
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         console.log(`Attempting to embed ${rows.length} rows (Attempt ${attempt}/${MAX_RETRIES})...`);
@@ -58,17 +77,14 @@ async function main() {
     }
     if (!resp) throw new Error("Failed to get response from OpenAI after all retries.");
     
-    // Step 2: Prepare the payload for our new RPC function
     const updates = rows.map((row, i) => ({
       id_to_update: row.id,
       embedding_vector: `[${resp.data[i].embedding.join(",")}]`
     }));
 
-    // Step 3: Call the RPC function to update the entire batch at once (with retry)
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
             console.log(`Attempting to save ${updates.length} embeddings via RPC (Attempt ${attempt}/${MAX_RETRIES})...`);
-            // This single line replaces the entire upsert loop
             const { error: rpcError } = await supabase.rpc('update_media_embeddings', { updates });
             
             if (rpcError) throw rpcError;

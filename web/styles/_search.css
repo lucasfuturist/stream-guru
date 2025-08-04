@@ -57,3 +57,31 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Add to your CSS, e.g., in _filters.css or _search.css */
+
+.filter-toggle-container {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.secondary-button {
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--card-radius);
+  border: 1px solid var(--text);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.secondary-button:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+}
+
+.filter-section.hidden {
+  display: none;
+}

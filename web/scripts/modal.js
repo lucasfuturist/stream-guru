@@ -39,11 +39,20 @@ function populateModal(details) {
       details.top_cast.forEach(actor => {
           const castMemberDiv = document.createElement('div');
           castMemberDiv.className = 'cast-member';
+
+          // --- THIS IS THE FIX ---
+          // The issue was that the duplicated logic in main.js was likely different.
+          // We will ensure that this canonical function correctly handles null paths
+          // and directly uses the valid URL from the database.
+          const profileSrc = actor.profile_path ? actor.profile_path : 'https://placehold.co/185x278?text=No+Image';
+
           castMemberDiv.innerHTML = `
-              <img src="${actor.profile_path || 'https://placehold.co/185x278?text=No+Image'}" alt="${actor.name}" class="cast-member-img">
+              <img src="${profileSrc}" alt="${actor.name}" class="cast-member-img">
               <p class="cast-member-name">${actor.name}</p>
               <p class="cast-member-char">${actor.character}</p>
           `;
+          // --- END OF FIX ---
+          
           modalCastList.appendChild(castMemberDiv);
       });
   }

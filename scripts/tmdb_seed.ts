@@ -114,6 +114,8 @@ async function processPage(page: number, config: any) {
             runtime: d.runtime ?? d.episode_run_time?.[0] ?? null, tagline: d.tagline || null, director: director?.name || null, trailer_key: officialTrailer?.key || null,
             backdrop_path: d.backdrop_path ? `${config.secure_base_url}${config.backdrop_size}${d.backdrop_path}` : null,
             logo_path: logo ? `${config.secure_base_url}${config.logo_size}${logo.file_path}` : null, top_cast: topCast || null,
+            // NEW: Add the spoken_languages field directly from the API response.
+            spoken_languages: d.spoken_languages ?? null,
         };
     });
   if (rows.length > 0) {

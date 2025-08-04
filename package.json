@@ -3,9 +3,21 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "seed": "deno run --allow-net --allow-env --allow-read scripts/tmdb_seed.ts",
-    "embed": "deno run --allow-net --allow-env --allow-read scripts/embed_all.ts",
-    "audit": "deno run --allow-net --allow-env --allow-write --allow-read --unstable-raw-imports scripts/audit.ts"  },
+    "seed":        "deno run -A scripts/tmdb_seed.ts",
+    "refresh":     "deno run -A scripts/refresh_existing.ts",
+    "embed":       "deno run -A scripts/embed_all.ts",
+    "refresh:all": "npm run refresh && npm run embed",
+
+    "get-recs":        "supabase functions serve get-recommendations --no-verify-jwt --env-file .env.local",
+    "train":           "supabase functions serve dict-train --no-verify-jwt --env-file .env.local",
+    "get-recs-deploy": "supabase functions deploy get-recommendations",
+    "train-deploy":    "supabase functions deploy dict-train",
+
+    "listener":  "deno run -A scripts/dict-listener.ts",
+    "audit":     "deno run -A scripts/audit.ts",
+
+    "test": "echo \"no tests yet\" && exit 0"
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^24.1.0",

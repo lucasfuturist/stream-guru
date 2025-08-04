@@ -2,57 +2,55 @@
 
 import OpenAI from "openai";
 
-const parserPrompt = `You are StreamGuru, a charismatic and witty movie and TV show concierge. Your knowledge of film is encyclopedic, but you are not a robot. You are a friend, a film buff who is passionate about helping people find their next favorite thing to watch.
-Your personality:
-- **Witty & Charismatic:** You use clever turns of phrase and a friendly, engaging tone.
-- **Knowledgeable:** You speak with confidence about movies and TV.
-- **Perceptive:** You read between the lines of what a user is asking for. You understand "vibes."
-Your primary task is to do two things:
-1.  **Parse the user's request** into a structured JSON object containing any specified filters.
-2.  **Write a creative, human-sounding response** to the user, acknowledging their request.
-**FILTERING RULES:**
-- You must extract up to four movie or TV genres. The valid genres are: Action, Adventure, Animation, Comedy, Crime, Documentary, Drama, Family, Fantasy, History, Horror, Music, Mystery, Romance, Science Fiction, TV Movie, Thriller, War, Western, Action & Adventure, Kids, News, Reality, Sci-Fi & Fantasy, Soap, Talk, War & Politics.
-- You must determine if the user has specified a maximum runtime in minutes. For example, "under 2 hours" or "a quick movie" should be parsed as \`120\`. If no runtime is mentioned, this should be \`null\`.
-- **CRITICAL RULE: You MUST ALWAYS write a creative, human-sounding response, even if the user's query is very simple. NEVER respond with only the JSON part.**
-- The final JSON object MUST be on the last line of your response and start with \`!JSON!\`.
-**EXAMPLE 1:**
-User request: "I want to watch a really funny sci-fi movie, but I don't have much time."
-Your response:
-On the hunt for some quick sci-fi laughs? Excellent choice. Let's see what the cosmos has to offer in the comedy department.
-!JSON!{"genres": ["Comedy", "Science Fiction", "Sci-Fi & Fantasy"], "max_runtime": 100}
-**EXAMPLE 2:**
-User request: "Something like The Matrix"
-Your response:
-Ah, a classic! You're looking for that mind-bending, leather-clad, reality-questioning vibe. I know just the thing.
-!JSON!{"genres": ["Action", "Science Fiction"], "max_runtime": null}
-**EXAMPLE 3 (Simple Query):**
-User request: "Horror"
-Your response:
-You want to get scared, do you? Say no more. Let's find something that will have you checking behind the curtains.
-!JSON!{"genres": ["Horror"], "max_runtime": null}`;
+// --- THE ULTIMATE PROMPT, V6 ---
+const parserPrompt = `You are StreamGuru, a stateful API assistant. Your job is to act as a JSON filter generator. You will be given a conversation history and must synthesize ALL relevant filters from the ENTIRE history into a single JSON object.
 
-const OPENAI_KEY = Deno.env.get("OPENAI_KEY")!;
-const openai = new OpenAI({ apiKey: OPENAI_KEY });
+**CRITICAL RULES:**
+1.  **Always build upon the previous context UNLESS the user makes a pivot.**
+2.  **If the user uses pivot words like "instead", "actually", "nevermind", or "how about", you MUST discard the previous context and start a NEW filter context.**
+3.  **NEW: You MUST extract 'media_type' if the user specifies 'series', 'tv show', or 'movie'.**
+4.  **If the user's intent is conversational (e.g., "thank you"), DO NOT generate a JSON block.**
 
-const CORS = {
+--- PIVOT EXAMPLE ---
+[
+  {"role": "user", "content": "90s comedies starring Jim Carrey"},
+  {"role": "assistant", "content": "(...) !JSON!{\"genres\": [\"Comedy\"], \"media_type\": \"movie\", \"release_year_min\": 1990, \"release_year_max\": 1999, \"actor\": \"Jim Carrey\"}"},
+  {"role": "user", "content": "actually, show me some horror series"}
+]
+YOUR NEXT RESPONSE: (Witty text) !JSON!{\"genres\": [\"Horror\"], \"media_type\": \"tv\"}
+---
+
+Your response MUST be a short, witty text followed by the \`!JSON!\` block on the last line.
+`;
+
+const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
 
   try {
-    const { message } = await req.json();
-    if (!message) throw new Error("message is required");
+    const OPENAI_KEY = Deno.env.get("OPENAI_KEY");
+    if (!OPENAI_KEY) {
+      throw new Error("The OPENAI_KEY secret is not set in the Supabase project.");
+    }
+    const openai = new OpenAI({ apiKey: OPENAI_KEY });
+
+    const { history } = await req.json();
+    if (!history || !Array.isArray(history)) throw new Error("A 'history' array is required");
+
+    const messages = [
+      { role: "system", content: parserPrompt },
+      ...history 
+    ];
 
     const chat_res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: parserPrompt },
-        { role: "user", content: message },
-      ],
+      messages: messages,
       temperature: 0.7,
     });
 
@@ -63,14 +61,23 @@ Deno.serve(async (req) => {
     if (content.includes("!JSON!")) {
       const [parsed_message, json_string] = content.split("!JSON!");
       ai_message = parsed_message.trim();
-      filters = JSON.parse(json_string);
+      
+      try {
+        filters = JSON.parse(json_string);
+      } catch (e) {
+        console.error("Malformed JSON received from OpenAI:", json_string);
+        console.error("Parsing Error:", e.message);
+        filters = {};
+      }
     }
 
-    return new Response(
-      JSON.stringify({ ai_message, filters }),
-      { headers: { "Content-Type": "application/json", ...CORS } }
-    );
+    return new Response(JSON.stringify({ ai_message, filters }), {
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json", ...CORS } });
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
   }
 });

@@ -1,7 +1,11 @@
 // web/scripts/main.js
 
 import { initTheme } from './theme.js';
-import { fetchTrending, fetchAiResponse, fetchMediaMatches, fetchMediaDetails } from './api.js';
+// --- THIS IS THE FIX ---
+// We now only import the functions that this page actually uses.
+// fetchAiResponse and fetchMediaMatches have been removed.
+import { fetchTrending, fetchFilteredMedia, fetchMediaDetails, fetchSearchResults } from './api.js';
+// --- END OF FIX ---
 import { displayMovies, displayError, displayLoading } from './ui.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,6 +16,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('search-input');
   const searchButton = document.querySelector('.search-button');
   const movieGrid = document.getElementById('movie-grid');
+
+  // --- Get filter elements ---
+  const toggleFiltersBtn = document.getElementById('toggle-filters-btn');
+  const filterControls = document.getElementById('filter-controls');
+  const genreFilter = document.getElementById('genre-filter');
+  const runtimeFilter = document.getElementById('runtime-filter');
+  const runtimeValue = document.getElementById('runtime-value');
+  const actorFilter = document.getElementById('actor-filter');
+  const applyFiltersBtn = document.getElementById('apply-filters-btn');
 
   // --- Get all modal elements ---
   const modal = document.getElementById('movie-modal');
@@ -32,6 +45,13 @@ document.addEventListener('DOMContentLoaded', () => {
   
   let currentTrailerKey = null;
 
+  // --- Event Listener to show/hide filters ---
+  if (toggleFiltersBtn && filterControls) {
+    toggleFiltersBtn.addEventListener('click', () => {
+      filterControls.classList.toggle('hidden');
+    });
+  }
+
   async function handleSearch(event) {
     event.preventDefault();
     const query = searchInput.value.trim();
@@ -43,9 +63,8 @@ document.addEventListener('DOMContentLoaded', () => {
     displayLoading(query);
 
     try {
-      const { filters } = await fetchAiResponse(query);
-      const recommendations = await fetchMediaMatches(query, filters);
-      displayMovies(recommendations, `Recommendations for "${query}"`);
+      const searchResults = await fetchSearchResults(query);
+      displayMovies(searchResults, `Results for "${query}"`);
     } catch (error) {
       displayError(error.message);
     } finally {
@@ -53,6 +72,39 @@ document.addEventListener('DOMContentLoaded', () => {
       searchButton.disabled = false;
       searchButton.textContent = 'Search';
     }
+  }
+  
+  async function handleFilterSearch() {
+    applyFiltersBtn.disabled = true;
+    applyFiltersBtn.textContent = 'Applying...';
+    
+    const filters = {
+      genre: genreFilter.value || null,
+      actor_name: actorFilter.value.trim() || null,
+      max_runtime: runtimeFilter.valueAsNumber < 240 ? runtimeFilter.valueAsNumber : null,
+    };
+
+    displayLoading('Applying filters...');
+
+    try {
+      const filteredResults = await fetchFilteredMedia(filters);
+      displayMovies(filteredResults, 'Filtered Results');
+    } catch (error) {
+      displayError(error.message);
+    } finally {
+      applyFiltersBtn.disabled = false;
+      applyFiltersBtn.textContent = 'Apply Filters';
+    }
+  }
+
+  if (runtimeFilter && runtimeValue) {
+    runtimeFilter.addEventListener('input', () => {
+      if (runtimeFilter.value === '240') {
+        runtimeValue.textContent = 'Any';
+      } else {
+        runtimeValue.textContent = `< ${runtimeFilter.value} min`;
+      }
+    });
   }
 
   async function loadInitialPage() {
@@ -103,7 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
         details.top_cast.forEach(actor => {
             const castMemberDiv = document.createElement('div');
             castMemberDiv.className = 'cast-member';
-            castMemberDiv.innerHTML = `<img src="${actor.profile_path || 'https://placehold.co/185x278?text=No+Image'}" alt="${actor.name}" class="cast-member-img"><p class="cast-member-name">${actor.name}</p><p class="cast-member-char">${actor.character}</p>`;
+            const profileSrc = actor.profile_path ? actor.profile_path : 'https://placehold.co/185x278?text=No+Image';
+            castMemberDiv.innerHTML = `<img src="${profileSrc}" alt="${actor.name}" class="cast-member-img"><p class="cast-member-name">${actor.name}</p><p class="cast-member-char">${actor.character}</p>`;
             modalCastList.appendChild(castMemberDiv);
         });
     }
@@ -181,8 +234,12 @@ document.addEventListener('DOMContentLoaded', () => {
     currentTrailerKey = null;
   }
 
+  // --- Attach Event Listeners ---
   if (searchForm) {
     searchForm.addEventListener('submit', handleSearch);
+  }
+  if (applyFiltersBtn) {
+    applyFiltersBtn.addEventListener('click', handleFilterSearch);
   }
   if (movieGrid) {
     movieGrid.addEventListener('click', handleCardClick);
