@@ -6,4 +6,4 @@ node_modules/
 current-stream-guru
 web-ts/
 reports/
-dist/
+public/
