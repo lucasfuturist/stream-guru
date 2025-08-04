@@ -15,6 +15,7 @@
 
     "listener":  "deno run -A scripts/dict-listener.ts",
     "audit":     "deno run -A scripts/audit.ts",
+    "build": "node scripts/build.js",
 
     "test": "echo \"no tests yet\" && exit 0"
   },
