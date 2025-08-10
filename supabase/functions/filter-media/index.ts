@@ -1,29 +1,38 @@
-// supabase/functions/filter-media/index.ts
-import { createClient } from "@supabase/supabase-js";
-
-const sb = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
+import { createClient } from "jsr:@supabase/supabase-js@^2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const PAGE_SIZE = 21; // Define a consistent page size
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
   try {
-    const { filters } = await req.json();
+    // Create Supabase client with the request's Authorization header to respect RLS policies
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! }
+        }
+      }
+    );
+
+    // Destructure page from the request, default to 1 if not provided
+    const { filters, page = 1 } = await req.json();
     if (!filters) throw new Error("A 'filters' object is required.");
 
-    console.log("Received filters:", filters);
-
-    // Call the new database function with the structured filters
-    const { data, error } = await sb.rpc("filter_media", {
+    // Call the database function with pagination parameters
+    const { data, error } = await supabaseClient.rpc("filter_media", {
       in_genre: filters.genre,
       in_actor_name: filters.actor_name,
-      in_max_runtime: filters.max_runtime
+      in_max_runtime: filters.max_runtime,
+      page_number: page,
+      page_size: PAGE_SIZE,
     });
 
     if (error) {

@@ -1,42 +1,33 @@
-// supabase/functions/search-media/index.ts
+// deno run --allow-net --allow-env
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { createClient } from "@supabase/supabase-js";
-
-const sb = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+serve(async (req) => {
   try {
-    const { query } = await req.json();
-    if (!query) throw new Error("A 'query' is required.");
+    const { query = "", page = 1, page_size = 21, adult_mode = false } =
+      await req.json();
 
-    // Call the new, simple database function
-    const { data, error } = await sb.rpc("search_media_by_keyword", {
-      keyword: query,
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!, // RPC is granted to anon; no service key needed
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
+    );
+
+    const { data, error } = await supabase.rpc("search_media", {
+      in_query: String(query),
+      page_number: Number(page),
+      page_size: Number(page_size),
+      adult_mode: Boolean(adult_mode),
     });
-
-    if (error) {
-      console.error("Database error:", error);
-      throw error;
-    }
+    if (error) throw error;
 
     return new Response(JSON.stringify({ results: data ?? [] }), {
-      headers: { ...CORS, "Content-Type": "application/json" },
+      headers: { "content-type": "application/json" },
     });
-
-  } catch (err) {
-    console.error("Function error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e?.message ?? "search failed" }), {
       status: 500,
-      headers: { ...CORS, "Content-Type": "application/json" },
+      headers: { "content-type": "application/json" },
     });
   }
 });

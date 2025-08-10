@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": "./dist" // Not used by ts-node, but good practice
+  },
+  "include": [
+    "scripts/**/*.ts" // Tell TS to only worry about files in the scripts folder
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

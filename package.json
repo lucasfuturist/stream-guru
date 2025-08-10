@@ -3,11 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "seed":        "deno run -A scripts/tmdb_seed.ts",
-    "refresh":     "deno run -A scripts/refresh_existing.ts",
+    "seed": "deno run -A scripts/tmdb_seed.ts && npm run analyze-media",
+    "seed:bulk": "deno run -A scripts/bulk_seed.ts && npm run analyze-media",
+    "curate":      "deno run -A scripts/smart_seeder.ts --mode=curate",
+    "refresh": "deno run -A scripts/refresh_all.ts && npm run analyze-media",
     "embed":       "deno run -A scripts/embed_all.ts",
     "refresh:all": "npm run refresh && npm run embed",
-
+    "analyze-media": "psql \"postgresql://postgres:q05f4xb6Kqm2Tkg2@db.gfbafuojtjtnbtfdhiqo.supabase.co:5432/postgres\" -c \"ANALYZE public.media;\"",
+    "backfill:cast": "deno run -A scripts/backfill_casts.ts",
+    "backfill:cast:range": "deno run -A scripts/backfill_casts.ts 0 2000",
+  
     "get-recs":        "supabase functions serve get-recommendations --no-verify-jwt --env-file .env.local",
     "train":           "supabase functions serve dict-train --no-verify-jwt --env-file .env.local",
     "get-recs-deploy": "supabase functions deploy get-recommendations",

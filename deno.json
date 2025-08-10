@@ -1,0 +1,9 @@
+{
+  "nodeModulesDir": true,
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.53.0",
+    "openai": "npm:openai@^5.10.2",
+    "dotenv": "https://deno.land/std@0.224.0/dotenv/load.ts",
+    "path": "https://deno.land/std@0.224.0/path/mod.ts"
+  }
+}

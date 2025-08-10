@@ -12,7 +12,7 @@ scripts
 +-- ping-supa.cjs
 +-- ping.ts
 +-- refresh_existing.ts
-+-- smart-seeder.ts
++-- smart_seeder.ts
 +-- tmdb_seed.ts
 L-- user_simulation.ts
 
@@ -403,9 +403,9 @@ async function fetchDetails(kind: "movie" | "tv", id: number) {
     console.log(`\n\n🎉 Full Refresh Finished! Processed a total of ${totalItemsProcessed} items.`);
 })();
 
-### smart-seeder.ts
+### smart_seeder.ts
 
-// scripts/smart-seeder.ts
+// scripts/smart_seeder.ts
 
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
